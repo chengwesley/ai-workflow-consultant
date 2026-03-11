@@ -142,17 +142,9 @@ export default function NodePanel() {
     )
   }
 
-  // Empty state
+  // Empty state — hide panel completely
   if (!node) {
-    return (
-      <div className="w-72 bg-white border-l border-slate-200 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
-          <span className="text-3xl">🖱️</span>
-        </div>
-        <p className="text-sm font-medium text-slate-600">點擊節點查看屬性</p>
-        <p className="text-xs text-slate-400 mt-1">點擊連線可設定例外路徑</p>
-      </div>
-    )
+    return null
   }
 
   const update = (field, value) => updateNodeData(node.id, { [field]: value })
