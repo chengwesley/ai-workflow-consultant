@@ -53,6 +53,7 @@ function EdgePanel({ edge, updateEdge, deleteEdge, setSelectedEdge }) {
   const toggleException = () => {
     updateEdge(edge.id, {
       isException: !isException,
+      type: 'step',
       style: !isException
         ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
         : { stroke: '#94a3b8', strokeWidth: 2 },

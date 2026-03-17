@@ -64,7 +64,7 @@ const useFlowStore = create((set, get) => ({
       edges: addEdge(
         { 
           ...connection, 
-          type: 'smoothstep',
+          type: 'step',
           animated: false, 
           style: { stroke: '#94a3b8', strokeWidth: 2 } 
         }, 
@@ -187,7 +187,7 @@ const useFlowStore = create((set, get) => ({
     if (nodes.length === 0) return
 
     const g = new dagre.graphlib.Graph()
-    g.setGraph({ rankdir: 'LR', nodesep: 80, ranksep: 140 })
+    g.setGraph({ rankdir: 'LR', nodesep: 100, ranksep: 160 })
     g.setDefaultEdgeLabel(() => ({}))
 
     const nodeWidth = 220

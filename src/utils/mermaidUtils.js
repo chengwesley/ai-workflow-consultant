@@ -121,6 +121,7 @@ export const parseMermaidToFlow = (mermaidCode) => {
           id: `e-${sourceNode.id}-${targetNode.id}-${Math.random().toString(36).substr(2, 9)}`,
           source: sourceNode.id,
           target: targetNode.id,
+          type: 'step',
           label: midLabel || pipeLabel || '',
           isException: (arrow && arrow.includes('.')) || (midLabel && midLabel.length > 0 && !arrow),
           style: (arrow && arrow.includes('.')) 
