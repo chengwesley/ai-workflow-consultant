@@ -5,7 +5,7 @@ import { exportToPng, exportToJSON, readJSONFile } from '../utils/exportUtils'
 import { convertFlowToMermaid, parseMermaidToFlow } from '../utils/mermaidUtils'
 
 export default function Toolbar({ flowRef, onOpenAIGenerate }) {
-  const { projectName, setProjectName, addNode, clearCanvas, loadFromJSON, autoLayout, nodes, edges } = useFlowStore(
+  const { projectName, setProjectName, addNode, clearCanvas, loadFromJSON, importMermaidData, autoLayout, nodes, edges } = useFlowStore(
     useShallow((s) => ({
       projectName: s.projectName, setProjectName: s.setProjectName,
       addNode: s.addNode, clearCanvas: s.clearCanvas,
