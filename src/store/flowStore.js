@@ -107,6 +107,13 @@ const useFlowStore = create((set, get) => ({
     get()._save()
   },
 
+  changeNodeType: (id, newType) => {
+    set((state) => ({
+      nodes: state.nodes.map((n) => (n.id === id ? { ...n, type: newType } : n)),
+    }))
+    get()._save()
+  },
+
   updateEdge: (id, props) => {
     set((state) => ({
       edges: state.edges.map((e) => e.id === id ? { ...e, ...props } : e),

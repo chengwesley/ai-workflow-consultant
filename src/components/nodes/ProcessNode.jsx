@@ -45,10 +45,10 @@ export default function ProcessNode({ data, selected }) {
   return (
     <div
       className={`
-        min-w-[160px] max-w-[240px] rounded-xl border-2 shadow-md
-        ${style.bg} ${style.border}
-        ${selected ? 'ring-2 ring-offset-1 ring-indigo-400 shadow-lg' : ''}
-        transition-all duration-150 cursor-pointer overflow-hidden
+        min-w-[160px] max-w-[240px] rounded-xl border-2 
+        ${style.bg} ${style.border} bg-opacity-80 backdrop-blur-md
+        ${selected ? 'ring-2 ring-offset-1 ring-indigo-400 shadow-xl scale-[1.02]' : 'shadow-md hover:shadow-lg hover:-translate-y-0.5'}
+        transition-all duration-200 cursor-pointer overflow-hidden
       `}
     >
       <Handle type="target" position={Position.Left} style={{ background: handleColor }} />

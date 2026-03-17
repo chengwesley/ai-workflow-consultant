@@ -126,26 +126,63 @@ export default function Toolbar({ flowRef, onOpenAIGenerate }) {
       {/* Divider */}
       <div className="w-px h-6 bg-slate-200" />
 
-      {/* Add Node Buttons */}
-      <span className="text-xs text-slate-400 hidden md:block">新增節點：</span>
-      <button
-        onClick={() => addNode('process')}
-        className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
-      >
-        ＋ 流程步驟
-      </button>
-      <button
-        onClick={() => addNode('decision')}
-        className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold hover:bg-orange-100 transition-colors"
-      >
-        ＋ 判斷節點
-      </button>
-      <button
-        onClick={() => addNode('startEnd')}
-        className="px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-600 text-xs font-semibold hover:bg-gray-200 transition-colors"
-      >
-        ＋ 結束
-      </button>
+      {/* Add Node Buttons - Expanded Palette */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mr-1 hidden lg:block">Add Node:</span>
+        
+        {/* Basic nodes */}
+        <button
+          onClick={() => addNode('process')}
+          className="px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-all flex items-center gap-1"
+        >
+          <span>🟦</span> <span className="hidden xl:inline">步驟</span>
+        </button>
+        <button
+          onClick={() => addNode('decision')}
+          className="px-2.5 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold hover:bg-orange-100 transition-all flex items-center gap-1"
+        >
+          <span>🔶</span> <span className="hidden xl:inline">判斷</span>
+        </button>
+        
+        {/* Advanced palette */}
+        <div className="flex bg-slate-100/50 p-1 rounded-lg border border-slate-200 ml-1">
+          <button
+            onClick={() => addNode('system')}
+            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-xs transition-all"
+            title="新增系統節點"
+          >
+            🖥️
+          </button>
+          <button
+            onClick={() => addNode('wait')}
+            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-xs transition-all"
+            title="新增等待節點"
+          >
+            ⏳
+          </button>
+          <button
+            onClick={() => addNode('file')}
+            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-xs transition-all"
+            title="新增資料/文件節點"
+          >
+            📄
+          </button>
+          <button
+            onClick={() => addNode('mail')}
+            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-xs transition-all"
+            title="新增郵件/通知節點"
+          >
+            ✉️
+          </button>
+        </div>
+
+        <button
+          onClick={() => addNode('startEnd')}
+          className="px-2.5 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-600 text-xs font-bold hover:bg-gray-200 transition-all ml-1"
+        >
+          <span>⚪</span> <span className="hidden xl:inline">結束</span>
+        </button>
+      </div>
 
       {/* Divider */}
       <div className="w-px h-6 bg-slate-200" />

@@ -118,7 +118,7 @@ export default function NodePanel() {
   const {
     nodes, edges, selectedNodeId, selectedEdgeId,
     setSelectedNode, setSelectedEdge, updateNodeData, deleteNode,
-    updateEdge, deleteEdge,
+    updateEdge, deleteEdge, changeNodeType,
   } = useFlowStore(
     useShallow((s) => ({
       nodes: s.nodes, edges: s.edges,
@@ -126,6 +126,7 @@ export default function NodePanel() {
       setSelectedNode: s.setSelectedNode, setSelectedEdge: s.setSelectedEdge,
       updateNodeData: s.updateNodeData, deleteNode: s.deleteNode,
       updateEdge: s.updateEdge, deleteEdge: s.deleteEdge,
+      changeNodeType: s.changeNodeType,
     }))
   )
 
@@ -174,6 +175,39 @@ export default function NodePanel() {
         >
           ×
         </button>
+      </div>
+
+      {/* One-Click Apply: Node Type Switcher */}
+      <div className="p-4 border-b border-slate-100 bg-indigo-50/30">
+        <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">
+          一鍵切換節點類型
+        </label>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { type: 'process', icon: '🟦', label: '步驟' },
+            { type: 'decision', icon: '🔶', label: '判斷' },
+            { type: 'system', icon: '🖥️', label: '系統' },
+            { type: 'wait', icon: '⏳', label: '等待' },
+            { type: 'file', icon: '📄', label: '資料' },
+            { type: 'mail', icon: '✉️', label: '郵件' },
+            { type: 'startEnd', icon: '⚪', label: '起止' },
+          ].map((item) => (
+            <button
+              key={item.type}
+              onClick={() => changeNodeType(node.id, item.type)}
+              className={`
+                flex flex-col items-center justify-center p-2 rounded-lg border transition-all
+                ${node.type === item.type 
+                  ? 'bg-white border-indigo-400 shadow-sm' 
+                  : 'bg-transparent border-slate-200 hover:border-indigo-300 hover:bg-white'}
+              `}
+              title={`轉換為 ${item.label}`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              <span className="text-[10px] mt-1 font-medium text-slate-600">{item.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">

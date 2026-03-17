@@ -8,7 +8,11 @@ export const convertFlowToMermaid = (nodes, edges, projectName) => {
   mermaidCode += `  classDef ai fill:#f0fdf4,stroke:#10b981,stroke-width:2px,color:#065f46;\n`
   mermaidCode += `  classDef human fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e40af;\n`
   mermaidCode += `  classDef hybrid fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#92400e;\n`
-  mermaidCode += `  classDef startEnd fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155;\n\n`
+  mermaidCode += `  classDef startEnd fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155;\n`
+  mermaidCode += `  classDef system fill:#1e293b,stroke:#475569,stroke-width:2px,color:#f8fafc;\n`
+  mermaidCode += `  classDef wait fill:#fffbeb,stroke:#fbbf24,stroke-width:2px,stroke-dasharray: 5 5,color:#92400e;\n`
+  mermaidCode += `  classDef file fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#065f46;\n`
+  mermaidCode += `  classDef mail fill:#f0f9ff,stroke:#0ea5e9,stroke-width:2px,color:#0369a1;\n\n`
 
   // 1. Process Nodes
   nodes.forEach(node => {
@@ -21,6 +25,12 @@ export const convertFlowToMermaid = (nodes, edges, projectName) => {
       nodeShape = `{"${label}"}` // Rhombus for decisions
     } else if (node.type === 'startEnd') {
       nodeShape = `(["${label}"])` // Rounded for start/end
+    } else if (node.type === 'system') {
+      nodeShape = `[("${label}")]` // Cylinder for systems
+    } else if (node.type === 'file') {
+      nodeShape = `[["${label}"]]` // Subroutine shape for files
+    } else if (node.type === 'wait') {
+      nodeShape = `> "${label}" ]` // Asymmetric shape for wait
     }
     
     mermaidCode += `  ${id}${nodeShape}\n`
@@ -34,6 +44,8 @@ export const convertFlowToMermaid = (nodes, edges, projectName) => {
       mermaidCode += `  class ${id} human\n`
     } else if (node.data.responsible === 'hybrid') {
       mermaidCode += `  class ${id} hybrid\n`
+    } else if (node.type === 'system' || node.type === 'wait' || node.type === 'file' || node.type === 'mail') {
+      mermaidCode += `  class ${id} ${node.type}\n`
     }
   })
 
@@ -139,10 +151,16 @@ export const parseMermaidToFlow = (mermaidCode) => {
           existingNode.type = 'startEnd'
           existingNode.data.nodeType = (finalLabel === '開始' || finalLabel === 'Start') ? 'start' : 'end'
         }
+        if (shape === '[(') existingNode.type = 'system'
+        if (shape === '[[') existingNode.type = 'file'
+        if (shape === '>') existingNode.type = 'wait'
       } else {
         let type = 'process'
         if (shape === '{') type = 'decision'
         if (shape === '(') type = 'startEnd'
+        if (shape === '[(') type = 'system'
+        if (shape === '[[') type = 'file'
+        if (shape === '>') type = 'wait'
         
         const newNode = createParsedNode(id, finalLabel, type)
         nodes.push(newNode)

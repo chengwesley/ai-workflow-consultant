@@ -10,13 +10,14 @@ export default function DecisionNode({ data, selected }) {
         {/* Diamond shape via CSS */}
         <div
           className={`
-            absolute inset-0 bg-orange-50 border-2 border-orange-400
-            ${selected ? 'ring-2 ring-offset-2 ring-indigo-400' : ''}
+            absolute inset-0 bg-orange-50/80 backdrop-blur-sm border-2 border-orange-400
+            ${selected ? 'ring-2 ring-offset-2 ring-indigo-400 scale-[1.02]' : 'hover:shadow-md'}
+            transition-all duration-200
           `}
           style={{
             transform: 'rotate(45deg)',
             borderRadius: '6px',
-            boxShadow: selected ? undefined : '0 2px 8px rgba(0,0,0,0.1)',
+            boxShadow: selected ? undefined : '0 2px 8px rgba(0,0,0,0.05)',
           }}
         />
 

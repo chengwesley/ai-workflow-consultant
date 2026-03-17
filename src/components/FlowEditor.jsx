@@ -12,11 +12,19 @@ import useFlowStore from '../store/flowStore'
 import ProcessNode from './nodes/ProcessNode'
 import DecisionNode from './nodes/DecisionNode'
 import StartEndNode from './nodes/StartEndNode'
+import SystemNode from './nodes/SystemNode'
+import WaitNode from './nodes/WaitNode'
+import FileNode from './nodes/FileNode'
+import MailNode from './nodes/MailNode'
 
 const nodeTypes = {
   process: ProcessNode,
   decision: DecisionNode,
   startEnd: StartEndNode,
+  system: SystemNode,
+  wait: WaitNode,
+  file: FileNode,
+  mail: MailNode,
 }
 
 const nodeColor = (node) => {
