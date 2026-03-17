@@ -91,56 +91,38 @@ export const parseMermaidToFlow = (mermaidCode) => {
   const nodes = []
   const edges = []
   const nodeMap = new Map()
+  const classAssignments = []
   
-  // Clean up code: remove <br/>, remove class assignments :::ClassName
-  let cleanCode = mermaidCode
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/:::[a-zA-Z0-9_]+/g, '')
+  // Clean up code: remove <br/>
+  let cleanCode = mermaidCode.replace(/<br\s*\/?>/gi, ' ')
   
   const lines = cleanCode.split('\n')
   
+  // First Pass: Nodes and Edges
   lines.forEach(line => {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('graph') || trimmed.startsWith('direction') || trimmed.startsWith('classDef')) return
-    if (trimmed.startsWith('%%')) return // Comments
+    if (trimmed.startsWith('%%')) return
 
-    // Handle class assignments: class NodeID ClassName
+    // Collect class assignments for the second pass
     if (trimmed.startsWith('class ')) {
-      const parts = trimmed.split(/\s+/)
-      if (parts.length >= 3) {
-        const nodeId = parts[1]
-        const className = parts[2]
-        const node = nodeMap.get(nodeId)
-        if (node) {
-          if (['ai', 'human', 'hybrid'].includes(className)) {
-            node.data.responsible = className
-          } else if (['system', 'wait', 'file', 'mail', 'startEnd'].includes(className)) {
-            node.type = className
-          }
-        }
-      }
+      classAssignments.push(trimmed)
       return
     }
 
     // Handle connections
-    // More robust regex for connections with labels
-    // Group 1: Source part
-    // Group 2: Arrow style (--> or -.-> etc)
-    // Group 3: Optional pipe label |label|
-    // Group 4: Target part
-    const connectionRegex = /^(.+?)\s*(-{2,}>|\.-\.-?>)\s*(?:\|([^|]+)\|)?\s*(.+)$/
+    // Arrow regex: --> or -.-> or ==> or any combination of -, =, . ending in >
+    const connectionRegex = /^(.+?)\s*([-=\.]+>)\s*(?:\|([^|]+)\|)?\s*(.+)$/
     const connMatch = trimmed.match(connectionRegex)
     
     if (connMatch) {
       const [, sourcePart, arrow, pipeLabel, targetPart] = connMatch
-      
       const sourceNode = parseNodeFromPart(sourcePart, nodeMap, nodes)
       const targetNode = parseNodeFromPart(targetPart, nodeMap, nodes)
       
       if (sourceNode && targetNode) {
         let label = pipeLabel || ''
-        label = label.trim().replace(/^["']|["']$/g, '').trim() // Strip outer quotes
-        label = label.replace(/^["']|["']$/g, '').trim() // Strip potential nested quotes
+        label = label.trim().replace(/^["']|["']$/g, '').trim().replace(/^["']|["']$/g, '').trim()
         
         const isException = arrow && arrow.includes('.')
 
@@ -166,6 +148,23 @@ export const parseMermaidToFlow = (mermaidCode) => {
 
     // Handle standalone node declarations
     parseNodeFromPart(trimmed, nodeMap, nodes)
+  })
+
+  // Second Pass: Apply Classes
+  classAssignments.forEach(assignment => {
+    const parts = assignment.split(/\s+/)
+    if (parts.length >= 3) {
+      const nodeId = parts[1]
+      const className = parts[2]
+      const node = nodeMap.get(nodeId)
+      if (node) {
+        if (['ai', 'human', 'hybrid'].includes(className)) {
+          node.data.responsible = className
+        } else if (['system', 'wait', 'file', 'mail', 'startEnd'].includes(className)) {
+          node.type = className
+        }
+      }
+    }
   })
 
   return { nodes, edges }
