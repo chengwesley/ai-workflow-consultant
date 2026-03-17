@@ -75,11 +75,13 @@ export default function FlowEditor({ flowRef }) {
         snapToGrid
         snapGrid={[16, 16]}
         defaultEdgeOptions={{
-          style: { stroke: '#64748b', strokeWidth: 2 },
+          type: 'smoothstep',
+          style: { stroke: '#94a3b8', strokeWidth: 2 },
           animated: false,
-          labelStyle: { fontSize: 11, fontWeight: 600, fill: '#64748b' },
-          labelBgStyle: { fill: '#f8fafc', fillOpacity: 0.9 },
-          labelBgPadding: [4, 3],
+          labelStyle: { fontSize: 10, fontWeight: 600, fill: '#64748b' },
+          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
+          labelBgPadding: [4, 2],
+          borderRadius: 12,
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#cbd5e1" />

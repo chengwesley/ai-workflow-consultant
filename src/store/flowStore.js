@@ -203,15 +203,25 @@ const useFlowStore = create((set, get) => ({
       if (!levelGroups[lv]) levelGroups[lv] = []
       levelGroups[lv].push(n.id)
     })
-    const H_GAP = 260
-    const V_GAP = 150
-    const CENTER_Y = 350
+    const H_GAP = 320 // Increased from 260
+    const V_GAP = 180 // Increased from 150
+    const CENTER_Y = 400
+    
+    // Sort nodes within each level to maintain some consistency (e.g., by ID or Type)
+    Object.keys(levelGroups).forEach(lv => {
+      levelGroups[lv].sort((a, b) => a.localeCompare(b))
+    })
+
     const newNodes = nodes.map((n) => {
       const lv = levels[n.id]
       const group = levelGroups[lv]
       const idx = group.indexOf(n.id)
-      const x = lv * H_GAP + 60
-      const y = (idx - (group.length - 1) / 2) * V_GAP + CENTER_Y
+      
+      // Calculate X and Y with better spacing
+      const x = lv * H_GAP + 100
+      // Center the group vertically around CENTER_Y
+      const y = CENTER_Y + (idx - (group.length - 1) / 2) * V_GAP
+      
       return { ...n, position: { x, y } }
     })
     set({ nodes: newNodes })
