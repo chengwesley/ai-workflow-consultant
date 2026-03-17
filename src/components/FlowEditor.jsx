@@ -6,6 +6,7 @@ import {
   MiniMap,
   BackgroundVariant,
   Panel,
+  MarkerType,
 } from '@xyflow/react'
 import { useShallow } from 'zustand/react/shallow'
 import useFlowStore from '../store/flowStore'
@@ -82,6 +83,10 @@ export default function FlowEditor({ flowRef }) {
           labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
           labelBgPadding: [4, 2],
           borderRadius: 12,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: '#94a3b8',
+          },
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#cbd5e1" />

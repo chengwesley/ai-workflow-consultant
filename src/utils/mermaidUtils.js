@@ -125,8 +125,12 @@ export const parseMermaidToFlow = (mermaidCode) => {
           isException: (arrow && arrow.includes('.')) || (midLabel && midLabel.length > 0 && !arrow),
           style: (arrow && arrow.includes('.')) 
             ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
-            : { stroke: '#64748b', strokeWidth: 2 },
-          animated: arrow && arrow.includes('.')
+            : { stroke: '#94a3b8', strokeWidth: 2 },
+          animated: arrow && arrow.includes('.'),
+          markerEnd: {
+            type: 'arrowclosed',
+            color: (arrow && arrow.includes('.')) ? '#ef4444' : '#94a3b8',
+          }
         })
       }
       return

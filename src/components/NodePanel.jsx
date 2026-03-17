@@ -55,8 +55,12 @@ function EdgePanel({ edge, updateEdge, deleteEdge, setSelectedEdge }) {
       isException: !isException,
       style: !isException
         ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
-        : { stroke: '#64748b', strokeWidth: 2 },
+        : { stroke: '#94a3b8', strokeWidth: 2 },
       animated: !isException,
+      markerEnd: {
+        type: 'arrowclosed',
+        color: !isException ? '#ef4444' : '#94a3b8',
+      },
     })
   }
 

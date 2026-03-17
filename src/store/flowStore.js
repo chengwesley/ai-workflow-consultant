@@ -60,7 +60,15 @@ const useFlowStore = create((set, get) => ({
 
   onConnect: (connection) => {
     set((state) => ({
-      edges: addEdge({ ...connection, animated: false, style: { stroke: '#64748b', strokeWidth: 2 } }, state.edges),
+      edges: addEdge(
+        { 
+          ...connection, 
+          type: 'smoothstep',
+          animated: false, 
+          style: { stroke: '#94a3b8', strokeWidth: 2 } 
+        }, 
+        state.edges
+      ),
     }))
     get()._save()
   },
@@ -203,8 +211,8 @@ const useFlowStore = create((set, get) => ({
       if (!levelGroups[lv]) levelGroups[lv] = []
       levelGroups[lv].push(n.id)
     })
-    const H_GAP = 320 // Increased from 260
-    const V_GAP = 180 // Increased from 150
+    const H_GAP = 380 // Increased from 320
+    const V_GAP = 220 // Increased from 180
     const CENTER_Y = 400
     
     // Sort nodes within each level to maintain some consistency (e.g., by ID or Type)
@@ -217,7 +225,7 @@ const useFlowStore = create((set, get) => ({
       const group = levelGroups[lv]
       const idx = group.indexOf(n.id)
       
-      // Calculate X and Y with better spacing
+      // Calculate X and Y with generous spacing
       const x = lv * H_GAP + 100
       // Center the group vertically around CENTER_Y
       const y = CENTER_Y + (idx - (group.length - 1) / 2) * V_GAP
