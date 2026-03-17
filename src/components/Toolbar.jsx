@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import useFlowStore from '../store/flowStore'
 import { exportToPng, exportToJSON, readJSONFile } from '../utils/exportUtils'
+import { convertFlowToMermaid } from '../utils/mermaidUtils'
 
 export default function Toolbar({ flowRef, onOpenAIGenerate }) {
   const { projectName, setProjectName, addNode, clearCanvas, loadFromJSON, autoLayout, nodes, edges } = useFlowStore(
@@ -34,7 +35,6 @@ export default function Toolbar({ flowRef, onOpenAIGenerate }) {
     await exportToPng(flowRef.current, projectName)
     setExporting(false)
   }
-
   const handleImport = async () => {
     try {
       const data = await readJSONFile()
@@ -42,6 +42,17 @@ export default function Toolbar({ flowRef, onOpenAIGenerate }) {
     } catch (e) {
       alert('匯入失敗：' + e.message)
     }
+  }
+
+  const handleExportMermaid = () => {
+    const mermaidCode = convertFlowToMermaid(nodes, edges, projectName)
+    navigator.clipboard.writeText(mermaidCode)
+      .then(() => alert('已複製 Mermaid 語法到剪貼簿！'))
+      .catch(err => {
+        console.error('Failed to copy: ', err)
+        alert('複製失敗，語法已顯示在 console。')
+        console.log(mermaidCode)
+      })
   }
 
   return (
@@ -146,6 +157,15 @@ export default function Toolbar({ flowRef, onOpenAIGenerate }) {
         className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-100 transition-colors"
       >
         💾 存檔
+      </button>
+
+      {/* Export Mermaid */}
+      <button
+        onClick={handleExportMermaid}
+        title="複製 Mermaid 語法 (適用於 Notion/GitHub)"
+        className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+      >
+        🔗 複製 Mermaid
       </button>
 
       {/* Export PNG */}

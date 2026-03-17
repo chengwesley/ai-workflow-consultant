@@ -24,6 +24,7 @@ const defaultNodes = [
       monthlyVolume: 0,
       manualTime: 0,
       autoTime: 0,
+      mermaidCode: '',
     },
   },
 ]
@@ -92,6 +93,7 @@ const useFlowStore = create((set, get) => ({
         monthlyVolume: 0,
         manualTime: 0,
         autoTime: 0,
+        mermaidCode: '',
       },
     }
     set((state) => ({ nodes: [...state.nodes, newNode], selectedNodeId: id, selectedEdgeId: null }))

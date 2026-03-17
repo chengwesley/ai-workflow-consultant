@@ -1,5 +1,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import useFlowStore from '../store/flowStore'
+import MermaidRenderer from './MermaidRenderer'
+import { generateSubProcessTemplate } from '../utils/mermaidUtils'
 
 const AI_TECH_OPTIONS = [
   'Claude API',
@@ -406,6 +408,53 @@ export default function NodePanel() {
             onChange={(e) => update('notes', e.target.value)}
           />
         </div>
+
+        {/* Mermaid Editor — for process and decision nodes */}
+        {(node.type === 'process' || node.type === 'decision') && (
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-indigo-600 uppercase tracking-wide">
+                📊 子流程 (Mermaid)
+              </label>
+              {!node.data.mermaidCode && (
+                <button
+                  onClick={() => update('mermaidCode', generateSubProcessTemplate(node.data.label))}
+                  className="text-[10px] text-indigo-500 hover:text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded transition-colors"
+                >
+                  ⚡ 生成範本
+                </button>
+              )}
+            </div>
+            
+            <textarea
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none bg-slate-50"
+              rows={4}
+              placeholder="輸入 Mermaid 語法 (如 graph LR...)"
+              value={node.data.mermaidCode || ''}
+              onChange={(e) => update('mermaidCode', e.target.value)}
+            />
+            
+            {node.data.mermaidCode && (
+              <div className="mt-3 p-2 border border-slate-100 rounded-lg bg-white shadow-inner">
+                <div className="text-[9px] text-slate-400 mb-1">即時預覽</div>
+                <MermaidRenderer 
+                  chartCode={node.data.mermaidCode} 
+                  className="max-h-[150px]" 
+                />
+                <button
+                  onClick={() => update('mermaidCode', '')}
+                  className="w-full mt-2 py-1 text-[10px] text-slate-400 hover:text-red-400 transition-colors"
+                >
+                  清除圖表
+                </button>
+              </div>
+            )}
+            
+            <p className="text-[10px] text-slate-400 mt-2 leading-tight">
+              💡 使用 Mermaid 語法描述此步驟內部的細節流程。
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Delete button */}

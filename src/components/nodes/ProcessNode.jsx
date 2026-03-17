@@ -1,7 +1,9 @@
 import { Handle, Position } from '@xyflow/react'
+import MermaidRenderer from '../MermaidRenderer'
 
 const RESPONSIBLE_STYLES = {
   ai: {
+// ... existing RESPONSIBLE_STYLES ...
     bg: 'bg-emerald-50',
     border: 'border-emerald-400',
     badge: 'bg-emerald-100 text-emerald-700',
@@ -43,10 +45,10 @@ export default function ProcessNode({ data, selected }) {
   return (
     <div
       className={`
-        min-w-[160px] max-w-[220px] rounded-xl border-2 shadow-md
+        min-w-[160px] max-w-[240px] rounded-xl border-2 shadow-md
         ${style.bg} ${style.border}
         ${selected ? 'ring-2 ring-offset-1 ring-indigo-400 shadow-lg' : ''}
-        transition-all duration-150 cursor-pointer
+        transition-all duration-150 cursor-pointer overflow-hidden
       `}
     >
       <Handle type="target" position={Position.Left} style={{ background: handleColor }} />
@@ -75,8 +77,21 @@ export default function ProcessNode({ data, selected }) {
           </div>
         )}
 
+        {/* Mermaid visualization (if available) */}
+        {data.mermaidCode && (
+          <div className="mt-2 pt-2 border-t border-black/5 bg-white/40 rounded-b-md -mx-3 px-2">
+             <div className="text-[9px] text-slate-400 mb-1 flex items-center gap-1">
+               <span>📊 子流程內容</span>
+             </div>
+             <MermaidRenderer 
+               chartCode={data.mermaidCode} 
+               className="max-h-[120px]" 
+             />
+          </div>
+        )}
+
         {/* AI Tech tags */}
-        {data.aiTech?.length > 0 && (
+        {!data.mermaidCode && data.aiTech?.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
             {data.aiTech.slice(0, 2).map((tech) => (
               <span key={tech} className="text-[10px] bg-white/70 border border-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
