@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
+import dagre from 'dagre'
 
 const STORAGE_KEY = 'ai-flow-consultant-data'
 
@@ -183,55 +184,36 @@ const useFlowStore = create((set, get) => ({
 
   autoLayout: () => {
     const { nodes, edges } = get()
-    const inDegree = Object.fromEntries(nodes.map((n) => [n.id, 0]))
-    const outEdges = Object.fromEntries(nodes.map((n) => [n.id, []]))
-    edges.forEach((e) => {
-      if (inDegree[e.target] !== undefined) inDegree[e.target]++
-      if (outEdges[e.source]) outEdges[e.source].push(e.target)
-    })
-    // BFS to assign depth levels
-    const levels = {}
-    const roots = nodes.filter((n) => inDegree[n.id] === 0).map((n) => n.id)
-    roots.forEach((id) => { levels[id] = 0 })
-    const queue = [...roots]
-    const visited = new Set(roots)
-    let head = 0
-    while (head < queue.length) {
-      const id = queue[head++]
-      ;(outEdges[id] || []).forEach((tid) => {
-        levels[tid] = Math.max(levels[tid] ?? 0, (levels[id] ?? 0) + 1)
-        if (!visited.has(tid)) { visited.add(tid); queue.push(tid) }
-      })
-    }
-    nodes.forEach((n) => { if (levels[n.id] === undefined) levels[n.id] = 0 })
-    // Group by level
-    const levelGroups = {}
-    nodes.forEach((n) => {
-      const lv = levels[n.id]
-      if (!levelGroups[lv]) levelGroups[lv] = []
-      levelGroups[lv].push(n.id)
-    })
-    const H_GAP = 380 // Increased from 320
-    const V_GAP = 220 // Increased from 180
-    const CENTER_Y = 400
-    
-    // Sort nodes within each level to maintain some consistency (e.g., by ID or Type)
-    Object.keys(levelGroups).forEach(lv => {
-      levelGroups[lv].sort((a, b) => a.localeCompare(b))
+    if (nodes.length === 0) return
+
+    const g = new dagre.graphlib.Graph()
+    g.setGraph({ rankdir: 'LR', nodesep: 80, ranksep: 140 })
+    g.setDefaultEdgeLabel(() => ({}))
+
+    const nodeWidth = 220
+    const nodeHeight = 100
+
+    nodes.forEach((node) => {
+      g.setNode(node.id, { width: nodeWidth, height: nodeHeight })
     })
 
-    const newNodes = nodes.map((n) => {
-      const lv = levels[n.id]
-      const group = levelGroups[lv]
-      const idx = group.indexOf(n.id)
-      
-      // Calculate X and Y with generous spacing
-      const x = lv * H_GAP + 100
-      // Center the group vertically around CENTER_Y
-      const y = CENTER_Y + (idx - (group.length - 1) / 2) * V_GAP
-      
-      return { ...n, position: { x, y } }
+    edges.forEach((edge) => {
+      g.setEdge(edge.source, edge.target)
     })
+
+    dagre.layout(g)
+
+    const newNodes = nodes.map((node) => {
+      const nodeWithPosition = g.node(node.id)
+      return {
+        ...node,
+        position: {
+          x: nodeWithPosition.x - nodeWidth / 2,
+          y: nodeWithPosition.y - nodeHeight / 2,
+        },
+      }
+    })
+
     set({ nodes: newNodes })
     get()._save()
   },
