@@ -101,36 +101,63 @@ export const parseMermaidToFlow = (mermaidCode) => {
   
   lines.forEach(line => {
     const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('graph') || trimmed.startsWith('direction') || trimmed.startsWith('classDef') || trimmed.startsWith('class ')) return
+    if (!trimmed || trimmed.startsWith('graph') || trimmed.startsWith('direction') || trimmed.startsWith('classDef')) return
     if (trimmed.startsWith('%%')) return // Comments
 
+    // Handle class assignments: class NodeID ClassName
+    if (trimmed.startsWith('class ')) {
+      const parts = trimmed.split(/\s+/)
+      if (parts.length >= 3) {
+        const nodeId = parts[1]
+        const className = parts[2]
+        const node = nodeMap.get(nodeId)
+        if (node) {
+          if (['ai', 'human', 'hybrid'].includes(className)) {
+            node.data.responsible = className
+          } else if (['system', 'wait', 'file', 'mail', 'startEnd'].includes(className)) {
+            node.type = className
+          }
+        }
+      }
+      return
+    }
+
     // Handle connections
-    // Regex to split a line by arrows: --> or -.-> or -- Label -->
-    // We look for patterns like: Start((...)) --> Target
-    const connectionRegex = /(.+?)\s*(?:--(?:"|')?([^-\n]+?)(?:"|')?-->|(-{2,}>|\.-\.-?>))\s*(?:\|(?:"|')?([^|]+?)(?:"|')?\|\s*)?(.+)/
-    
+    // More robust regex for connections with labels
+    // Group 1: Source part
+    // Group 2: Arrow style (--> or -.-> etc)
+    // Group 3: Optional pipe label |label|
+    // Group 4: Target part
+    const connectionRegex = /^(.+?)\s*(-{2,}>|\.-\.-?>)\s*(?:\|([^|]+)\|)?\s*(.+)$/
     const connMatch = trimmed.match(connectionRegex)
+    
     if (connMatch) {
-      const [, sourcePart, midLabel, arrow, pipeLabel, targetPart] = connMatch
+      const [, sourcePart, arrow, pipeLabel, targetPart] = connMatch
       
       const sourceNode = parseNodeFromPart(sourcePart, nodeMap, nodes)
       const targetNode = parseNodeFromPart(targetPart, nodeMap, nodes)
       
       if (sourceNode && targetNode) {
+        let label = pipeLabel || ''
+        label = label.trim().replace(/^["']|["']$/g, '').trim() // Strip outer quotes
+        label = label.replace(/^["']|["']$/g, '').trim() // Strip potential nested quotes
+        
+        const isException = arrow && arrow.includes('.')
+
         edges.push({
           id: `e-${sourceNode.id}-${targetNode.id}-${Math.random().toString(36).substr(2, 9)}`,
           source: sourceNode.id,
           target: targetNode.id,
           type: 'step',
-          label: midLabel || pipeLabel || '',
-          isException: (arrow && arrow.includes('.')) || (midLabel && midLabel.length > 0 && !arrow),
-          style: (arrow && arrow.includes('.')) 
+          label: label,
+          isException: isException,
+          style: isException 
             ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
             : { stroke: '#94a3b8', strokeWidth: 2 },
-          animated: arrow && arrow.includes('.'),
+          animated: isException,
           markerEnd: {
             type: 'arrowclosed',
-            color: (arrow && arrow.includes('.')) ? '#ef4444' : '#94a3b8',
+            color: isException ? '#ef4444' : '#94a3b8',
           }
         })
       }
@@ -148,16 +175,30 @@ export const parseMermaidToFlow = (mermaidCode) => {
  * Helper to identify and create/update a node from a string part like "id((Label))"
  */
 const parseNodeFromPart = (part, nodeMap, nodes) => {
-  const trimmed = part.trim()
-  // Pattern: id or id[...] or id(...) or id((...)) or id{...} or id[[...]] or id>...]
-  // Updated regex to be more greedy on label but stop at shape end
-  const nodePartRegex = /^([a-zA-Z0-9_]+)(?:([\(\[\{>]{1,2})(?:"|')?(.+?)(?:"|')?([\)\}\]]{1,2}))?/
-  const match = trimmed.match(nodePartRegex)
+  const trimmedPart = part.trim()
+  // Pattern: id or id[...] or id(...) or id((...)) or id{...} or id[[...]] or id>...] etc
+  // We first try to split the ID from the shape
+  const idMatch = trimmedPart.match(/^([a-zA-Z0-9_]+)/)
+  if (!idMatch) return null
   
-  if (!match) return null
+  const id = idMatch[1]
+  const rest = trimmedPart.substring(id.length).trim()
   
-  const [, id, shapeOpen, label] = match
-  const finalLabel = label ? label.trim() : id
+  let label = null
+  let shapeOpen = null
+  
+  if (rest) {
+    // Look for shape brackets and content inside
+    const shapeMatch = rest.match(/^([\(\[\{>]{1,2})(.*?)([\)\}\]]{1,2})$/)
+    if (shapeMatch) {
+      shapeOpen = shapeMatch[1]
+      label = shapeMatch[2].trim()
+      // Strip quotes if present
+      label = label.replace(/^["']|["']$/g, '').trim()
+    }
+  }
+  
+  const finalLabel = label || id
   
   if (nodeMap.has(id)) {
     const existingNode = nodeMap.get(id)
@@ -178,7 +219,7 @@ const updateTypeFromShape = (node, shape, label) => {
   
   if (shape === '{') {
     node.type = 'decision'
-  } else if (shape === '(' || shape === '((') {
+  } else if (shape.startsWith('(')) {
     node.type = 'startEnd'
     const isStartLabel = label === '開始' || label.toLowerCase().includes('start') || label.toLowerCase().includes('發起')
     node.data.nodeType = isStartLabel ? 'start' : 'end'
