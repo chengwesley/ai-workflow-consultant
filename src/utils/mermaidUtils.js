@@ -92,84 +92,98 @@ export const parseMermaidToFlow = (mermaidCode) => {
   const edges = []
   const nodeMap = new Map()
   
-  const lines = mermaidCode.split('\n')
+  // Clean up code: remove <br/>, remove class assignments :::ClassName
+  let cleanCode = mermaidCode
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/:::[a-zA-Z0-9_]+/g, '')
   
-  // Basic Regex patterns
-  // 1. Node pattern: id["Label"] or id("Label") or id{"Label"} or id
-  const nodeRegex = /([a-zA-Z0-9_]+)(?:(\[|\{|\()(?:"|')?([^\]\n"}]+)(?:"|')?(\]|\}|\)))?/
+  const lines = cleanCode.split('\n')
   
-  // 2. Connection pattern: id1 --> id2 or id1 --|Label|--> id2
-  const edgeRegex = /([a-zA-Z0-9_]+)\s*(-{2,}>|\.-\.-?>)\s*(?:\|(?:"|')?([^|]+)(?:"|')?\|\s*)?([a-zA-Z0-9_]+)/
-
   lines.forEach(line => {
     const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('graph') || trimmed.startsWith('classDef') || trimmed.startsWith('class ')) return
+    if (!trimmed || trimmed.startsWith('graph') || trimmed.startsWith('direction') || trimmed.startsWith('classDef') || trimmed.startsWith('class ')) return
+    if (trimmed.startsWith('%%')) return // Comments
 
-    // Check for edges first as they contain node IDs
-    const edgeMatch = trimmed.match(edgeRegex)
-    if (edgeMatch) {
-      const [, sourceId, arrow, label, targetId] = edgeMatch
+    // Handle connections
+    // Regex to split a line by arrows: --> or -.-> or -- Label -->
+    // We look for patterns like: Start((...)) --> Target
+    const connectionRegex = /(.+?)\s*(?:--(?:"|')?([^-\n]+?)(?:"|')?-->|(-{2,}>|\.-\.-?>))\s*(?:\|(?:"|')?([^|]+?)(?:"|')?\|\s*)?(.+)/
+    
+    const connMatch = trimmed.match(connectionRegex)
+    if (connMatch) {
+      const [, sourcePart, midLabel, arrow, pipeLabel, targetPart] = connMatch
       
-      // Ensure nodes exist
-      if (!nodeMap.has(sourceId)) {
-        const newNode = createParsedNode(sourceId, sourceId)
-        nodes.push(newNode)
-        nodeMap.set(sourceId, newNode)
-      }
-      if (!nodeMap.has(targetId)) {
-        const newNode = createParsedNode(targetId, targetId)
-        nodes.push(newNode)
-        nodeMap.set(targetId, newNode)
-      }
+      const sourceNode = parseNodeFromPart(sourcePart, nodeMap, nodes)
+      const targetNode = parseNodeFromPart(targetPart, nodeMap, nodes)
       
-      edges.push({
-        id: `e-${sourceId}-${targetId}-${Date.now()}`,
-        source: sourceId,
-        target: targetId,
-        label: label || '',
-        isException: arrow.includes('.'),
-        style: arrow.includes('.') 
-          ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
-          : { stroke: '#64748b', strokeWidth: 2 },
-        animated: arrow.includes('.')
-      })
+      if (sourceNode && targetNode) {
+        edges.push({
+          id: `e-${sourceNode.id}-${targetNode.id}-${Math.random().toString(36).substr(2, 9)}`,
+          source: sourceNode.id,
+          target: targetNode.id,
+          label: midLabel || pipeLabel || '',
+          isException: (arrow && arrow.includes('.')) || (midLabel && midLabel.length > 0 && !arrow),
+          style: (arrow && arrow.includes('.')) 
+            ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
+            : { stroke: '#64748b', strokeWidth: 2 },
+          animated: arrow && arrow.includes('.')
+        })
+      }
       return
     }
 
-    // Check for individual node declarations
-    const nodeMatch = trimmed.match(nodeRegex)
-    if (nodeMatch) {
-      const [, id, shape, label] = nodeMatch
-      const finalLabel = label || id
-      
-      if (nodeMap.has(id)) {
-        // Update existing node data if label found
-        const existingNode = nodeMap.get(id)
-        existingNode.data.label = finalLabel
-        if (shape === '{' || shape === '}') existingNode.type = 'decision'
-        if (shape === '(' || shape === ')') {
-          existingNode.type = 'startEnd'
-          existingNode.data.nodeType = (finalLabel === '開始' || finalLabel === 'Start') ? 'start' : 'end'
-        }
-        if (shape === '[(') existingNode.type = 'system'
-        if (shape === '[[') existingNode.type = 'file'
-        if (shape === '>') existingNode.type = 'wait'
-      } else {
-        let type = 'process'
-        if (shape === '{') type = 'decision'
-        if (shape === '(') type = 'startEnd'
-        if (shape === '[(') type = 'system'
-        if (shape === '[[') type = 'file'
-        if (shape === '>') type = 'wait'
-        
-        const newNode = createParsedNode(id, finalLabel, type)
-        nodes.push(newNode)
-        nodeMap.set(id, newNode)
-      }
-    }
+    // Handle standalone node declarations
+    parseNodeFromPart(trimmed, nodeMap, nodes)
   })
 
   return { nodes, edges }
+}
+
+/**
+ * Helper to identify and create/update a node from a string part like "id((Label))"
+ */
+const parseNodeFromPart = (part, nodeMap, nodes) => {
+  const trimmed = part.trim()
+  // Pattern: id or id[...] or id(...) or id((...)) or id{...} or id[[...]] or id>...]
+  // Updated regex to be more greedy on label but stop at shape end
+  const nodePartRegex = /^([a-zA-Z0-9_]+)(?:([\(\[\{>]{1,2})(?:"|')?(.+?)(?:"|')?([\)\}\]]{1,2}))?/
+  const match = trimmed.match(nodePartRegex)
+  
+  if (!match) return null
+  
+  const [, id, shapeOpen, label] = match
+  const finalLabel = label ? label.trim() : id
+  
+  if (nodeMap.has(id)) {
+    const existingNode = nodeMap.get(id)
+    if (label) existingNode.data.label = finalLabel
+    updateTypeFromShape(existingNode, shapeOpen, finalLabel)
+    return existingNode
+  } else {
+    const newNode = createParsedNode(id, finalLabel, 'process')
+    updateTypeFromShape(newNode, shapeOpen, finalLabel)
+    nodes.push(newNode)
+    nodeMap.set(id, newNode)
+    return newNode
+  }
+}
+
+const updateTypeFromShape = (node, shape, label) => {
+  if (!shape) return
+  
+  if (shape === '{') {
+    node.type = 'decision'
+  } else if (shape === '(' || shape === '((') {
+    node.type = 'startEnd'
+    const isStartLabel = label === '開始' || label.toLowerCase().includes('start') || label.toLowerCase().includes('發起')
+    node.data.nodeType = isStartLabel ? 'start' : 'end'
+  } else if (shape === '[(') {
+    node.type = 'system'
+  } else if (shape === '[[') {
+    node.type = 'file'
+  } else if (shape === '>') {
+    node.type = 'wait'
+  }
 }
 
 const createParsedNode = (id, label, type = 'process') => {
