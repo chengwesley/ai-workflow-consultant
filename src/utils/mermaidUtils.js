@@ -111,18 +111,32 @@ export const parseMermaidToFlow = (mermaidCode) => {
     }
 
     // Handle connections
-    // Arrow regex: --> or -.-> or ==> or any combination of -, =, . ending in >
-    const connectionRegex = /^(.+?)\s*([-=\.]+>)\s*(?:\|([^|]+)\|)?\s*(.+)$/
-    const connMatch = trimmed.match(connectionRegex)
+    // Regex branch 1: A -- Label --> B
+    // Regex branch 2: A --> |Label| B or A --> B or A -.-> B
+    const labeledConnectionRegex = /^(.+?)\s*--\s*(?:"|')?([^-\n]+?)(?:"|')?\s*([-=\.]+>)\s*(.+)$/
+    const standardConnectionRegex = /^(.+?)\s*([-=\.]+>)\s*(?:\|([^|]+)\|)?\s*(.+)$/
+    
+    let connMatch = trimmed.match(labeledConnectionRegex)
+    let sourcePart, arrow, midLabel, pipeLabel, targetPart
+
+    if (connMatch) {
+      [, sourcePart, midLabel, arrow, targetPart] = connMatch
+      pipeLabel = ''
+    } else {
+      connMatch = trimmed.match(standardConnectionRegex)
+      if (connMatch) {
+        [, sourcePart, arrow, pipeLabel, targetPart] = connMatch
+        midLabel = ''
+      }
+    }
     
     if (connMatch) {
-      const [, sourcePart, arrow, pipeLabel, targetPart] = connMatch
       const sourceNode = parseNodeFromPart(sourcePart, nodeMap, nodes)
       const targetNode = parseNodeFromPart(targetPart, nodeMap, nodes)
       
       if (sourceNode && targetNode) {
-        let label = pipeLabel || ''
-        label = label.trim().replace(/^["']|["']$/g, '').trim().replace(/^["']|["']$/g, '').trim()
+        let label = (midLabel || pipeLabel || '').trim()
+        label = label.replace(/^["']|["']$/g, '').trim().replace(/^["']|["']$/g, '').trim()
         
         const isException = arrow && arrow.includes('.')
 
@@ -152,29 +166,46 @@ export const parseMermaidToFlow = (mermaidCode) => {
 
   // Second Pass: Apply Classes
   classAssignments.forEach(assignment => {
-    const parts = assignment.split(/\s+/)
-    if (parts.length >= 3) {
-      const nodeId = parts[1]
-      const className = parts[2]
-      const node = nodeMap.get(nodeId)
-      if (node) {
-        if (['ai', 'human', 'hybrid'].includes(className)) {
-          node.data.responsible = className
-        } else if (['system', 'wait', 'file', 'mail', 'startEnd'].includes(className)) {
+    applyClassAssignment(assignment, nodeMap)
+  })
+
+  return { nodes, edges }
+}
+
+const applyClassAssignment = (assignment, nodeMap) => {
+  const parts = assignment.split(/\s+/)
+  if (parts.length >= 3) {
+    const nodeId = parts[1]
+    const className = parts[2]
+    const node = nodeMap.get(nodeId)
+    if (node) {
+      if (['ai', 'human', 'hybrid'].includes(className)) {
+        node.data.responsible = className
+      } else if (['system', 'wait', 'file', 'mail', 'startEnd', 'process', 'decision', 'error'].includes(className)) {
+        if (className === 'error') {
+          node.data.responsible = 'human' // Special case for error style in process
+        } else {
           node.type = className
         }
       }
     }
-  })
-
-  return { nodes, edges }
+  }
 }
 
 /**
  * Helper to identify and create/update a node from a string part like "id((Label))"
  */
 const parseNodeFromPart = (part, nodeMap, nodes) => {
-  const trimmedPart = part.trim()
+  let trimmedPart = part.trim()
+  
+  // Strip inline class assignments :::className
+  const inlineClassMatch = trimmedPart.match(/(.+?):::([a-zA-Z0-9_]+)$/)
+  let inlineClassName = null
+  if (inlineClassMatch) {
+    trimmedPart = inlineClassMatch[1].trim()
+    inlineClassName = inlineClassMatch[2]
+  }
+
   // Pattern: id or id[...] or id(...) or id((...)) or id{...} or id[[...]] or id>...] etc
   // We first try to split the ID from the shape
   const idMatch = trimmedPart.match(/^([a-zA-Z0-9_]+)/)
@@ -199,18 +230,24 @@ const parseNodeFromPart = (part, nodeMap, nodes) => {
   
   const finalLabel = label || id
   
+  let node
   if (nodeMap.has(id)) {
-    const existingNode = nodeMap.get(id)
-    if (label) existingNode.data.label = finalLabel
-    updateTypeFromShape(existingNode, shapeOpen, finalLabel)
-    return existingNode
+    node = nodeMap.get(id)
+    if (label) node.data.label = finalLabel
+    updateTypeFromShape(node, shapeOpen, finalLabel)
   } else {
-    const newNode = createParsedNode(id, finalLabel, 'process')
-    updateTypeFromShape(newNode, shapeOpen, finalLabel)
-    nodes.push(newNode)
-    nodeMap.set(id, newNode)
-    return newNode
+    node = createParsedNode(id, finalLabel, 'process')
+    updateTypeFromShape(node, shapeOpen, finalLabel)
+    nodes.push(node)
+    nodeMap.set(id, node)
   }
+
+  // Apply inline class if found
+  if (inlineClassName) {
+    applyClassAssignment(`class ${id} ${inlineClassName}`, nodeMap)
+  }
+
+  return node
 }
 
 const updateTypeFromShape = (node, shape, label) => {
