@@ -1,3 +1,9 @@
+// Mermaid reserved keywords that cannot be used as node IDs
+const MERMAID_RESERVED = new Set(['end', 'start', 'default', 'subgraph', 'direction', 'classDef', 'class', 'click', 'linkStyle', 'style'])
+
+const sanitizeId = (id) =>
+  MERMAID_RESERVED.has(id.toLowerCase()) ? `node_${id}` : id
+
 /**
  * Utility to convert React Flow nodes and edges to Mermaid graph TD format
  */
@@ -16,7 +22,7 @@ export const convertFlowToMermaid = (nodes, edges, projectName) => {
 
   // 1. Process Nodes
   nodes.forEach(node => {
-    const id = node.id.replace(/[^a-zA-Z0-9]/g, '_')
+    const id = sanitizeId(node.id.replace(/[^a-zA-Z0-9]/g, '_'))
     const label = node.data.label.replace(/"/g, "'")
     
     let nodeShape = `["${label}"]` // Default square
@@ -53,8 +59,8 @@ export const convertFlowToMermaid = (nodes, edges, projectName) => {
 
   // 2. Process Edges
   edges.forEach(edge => {
-    const sourceId = edge.source.replace(/[^a-zA-Z0-9]/g, '_')
-    const targetId = edge.target.replace(/[^a-zA-Z0-9]/g, '_')
+    const sourceId = sanitizeId(edge.source.replace(/[^a-zA-Z0-9]/g, '_'))
+    const targetId = sanitizeId(edge.target.replace(/[^a-zA-Z0-9]/g, '_'))
     const label = edge.label ? `|"${edge.label}"| ` : ''
     
     let arrow = '-->'
@@ -141,7 +147,7 @@ export const parseMermaidToFlow = (mermaidCode) => {
         const isException = arrow && arrow.includes('.')
 
         edges.push({
-          id: `e-${sourceNode.id}-${targetNode.id}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `e-${sourceNode.id}-${targetNode.id}-${Math.random().toString(36).substring(2, 11)}`,
           source: sourceNode.id,
           target: targetNode.id,
           type: 'step',
@@ -210,8 +216,8 @@ const parseNodeFromPart = (part, nodeMap, nodes) => {
   // We first try to split the ID from the shape
   const idMatch = trimmedPart.match(/^([a-zA-Z0-9_]+)/)
   if (!idMatch) return null
-  
-  const id = idMatch[1]
+
+  const id = sanitizeId(idMatch[1])
   const rest = trimmedPart.substring(id.length).trim()
   
   let label = null

@@ -3,6 +3,7 @@ import { addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import dagre from 'dagre'
 
 const STORAGE_KEY = 'ai-flow-consultant-data'
+const MAX_HISTORY = 50
 
 const defaultNodes = [
   {
@@ -41,33 +42,81 @@ const loadFromStorage = () => {
 }
 
 const saved = loadFromStorage()
+const initialNodes = saved?.nodes || defaultNodes
+const initialEdges = saved?.edges || []
 
 const useFlowStore = create((set, get) => ({
-  nodes: saved?.nodes || defaultNodes,
-  edges: saved?.edges || [],
+  nodes: initialNodes,
+  edges: initialEdges,
   selectedNodeId: null,
   selectedEdgeId: null,
   projectName: saved?.projectName || '未命名專案',
+  history: [{ nodes: initialNodes, edges: initialEdges }],
+  historyIndex: 0,
+
+  _pushHistory: () => {
+    const { nodes, edges, history, historyIndex } = get()
+    const snapshot = {
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+    }
+    const next = [...history.slice(0, historyIndex + 1), snapshot]
+    const trimmed = next.length > MAX_HISTORY ? next.slice(-MAX_HISTORY) : next
+    set({ history: trimmed, historyIndex: trimmed.length - 1 })
+  },
+
+  undo: () => {
+    const { historyIndex, history } = get()
+    if (historyIndex <= 0) return
+    const newIndex = historyIndex - 1
+    const { nodes, edges } = history[newIndex]
+    set({
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      historyIndex: newIndex,
+      selectedNodeId: null,
+      selectedEdgeId: null,
+    })
+    get()._save()
+  },
+
+  redo: () => {
+    const { historyIndex, history } = get()
+    if (historyIndex >= history.length - 1) return
+    const newIndex = historyIndex + 1
+    const { nodes, edges } = history[newIndex]
+    set({
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      historyIndex: newIndex,
+      selectedNodeId: null,
+      selectedEdgeId: null,
+    })
+    get()._save()
+  },
 
   onNodesChange: (changes) => {
+    if (changes.some(c => c.type === 'remove')) get()._pushHistory()
     set((state) => ({ nodes: applyNodeChanges(changes, state.nodes) }))
     get()._save()
   },
 
   onEdgesChange: (changes) => {
+    if (changes.some(c => c.type === 'remove')) get()._pushHistory()
     set((state) => ({ edges: applyEdgeChanges(changes, state.edges) }))
     get()._save()
   },
 
   onConnect: (connection) => {
+    get()._pushHistory()
     set((state) => ({
       edges: addEdge(
-        { 
-          ...connection, 
+        {
+          ...connection,
           type: 'step',
-          animated: false, 
-          style: { stroke: '#94a3b8', strokeWidth: 2 } 
-        }, 
+          animated: false,
+          style: { stroke: '#94a3b8', strokeWidth: 2 }
+        },
         state.edges
       ),
     }))
@@ -78,6 +127,7 @@ const useFlowStore = create((set, get) => ({
   setSelectedEdge: (id) => set({ selectedEdgeId: id }),
 
   addNode: (type) => {
+    get()._pushHistory()
     const id = `${type}-${Date.now()}`
     const labels = { process: '新流程步驟', decision: '判斷條件', startEnd: '結束' }
     const { nodes } = get()
@@ -117,6 +167,7 @@ const useFlowStore = create((set, get) => ({
   },
 
   changeNodeType: (id, newType) => {
+    get()._pushHistory()
     set((state) => ({
       nodes: state.nodes.map((n) => (n.id === id ? { ...n, type: newType } : n)),
     }))
@@ -131,6 +182,7 @@ const useFlowStore = create((set, get) => ({
   },
 
   deleteEdge: (id) => {
+    get()._pushHistory()
     set((state) => ({
       edges: state.edges.filter((e) => e.id !== id),
       selectedEdgeId: state.selectedEdgeId === id ? null : state.selectedEdgeId,
@@ -139,6 +191,7 @@ const useFlowStore = create((set, get) => ({
   },
 
   deleteNode: (id) => {
+    get()._pushHistory()
     set((state) => ({
       nodes: state.nodes.filter((n) => n.id !== id),
       edges: state.edges.filter((e) => e.source !== id && e.target !== id),
@@ -153,12 +206,14 @@ const useFlowStore = create((set, get) => ({
   },
 
   clearCanvas: () => {
+    get()._pushHistory()
     set({ nodes: defaultNodes, edges: [], selectedNodeId: null })
     get()._save()
   },
 
   loadFromJSON: (json) => {
     try {
+      get()._pushHistory()
       const data = typeof json === 'string' ? JSON.parse(json) : json
       set({ nodes: data.nodes || [], edges: data.edges || [], projectName: data.projectName || '匯入專案', selectedNodeId: null })
       get()._save()
@@ -168,8 +223,9 @@ const useFlowStore = create((set, get) => ({
   },
 
   importMermaidData: ({ nodes, edges }) => {
+    get()._pushHistory()
     set({ nodes, edges, selectedNodeId: null, selectedEdgeId: null })
-    get().autoLayout() // Automatically arrange the imported nodes
+    get().autoLayout()
     get()._save()
   },
 
