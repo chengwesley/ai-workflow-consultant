@@ -2,14 +2,15 @@ import { useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import useFlowStore from '../store/flowStore'
 import { exportToPng, exportToJSON, readJSONFile } from '../utils/exportUtils'
-import { convertFlowToMermaid } from '../utils/mermaidUtils'
+import { convertFlowToMermaid, parseMermaidToFlow } from '../utils/mermaidUtils'
 
 export default function Toolbar({ flowRef, onOpenAIGenerate }) {
   const { projectName, setProjectName, addNode, clearCanvas, loadFromJSON, autoLayout, nodes, edges } = useFlowStore(
     useShallow((s) => ({
       projectName: s.projectName, setProjectName: s.setProjectName,
       addNode: s.addNode, clearCanvas: s.clearCanvas,
-      loadFromJSON: s.loadFromJSON, autoLayout: s.autoLayout, nodes: s.nodes, edges: s.edges,
+      loadFromJSON: s.loadFromJSON, importMermaidData: s.importMermaidData,
+      autoLayout: s.autoLayout, nodes: s.nodes, edges: s.edges,
     }))
   )
   const [editingName, setEditingName] = useState(false)
@@ -53,6 +54,23 @@ export default function Toolbar({ flowRef, onOpenAIGenerate }) {
         alert('複製失敗，語法已顯示在 console。')
         console.log(mermaidCode)
       })
+  }
+
+  const handleImportMermaidOpen = () => {
+    const code = prompt('請貼上 Mermaid 語法 (例如: graph TD; A-->B;):')
+    if (code) {
+      try {
+        const { nodes, edges } = parseMermaidToFlow(code)
+        if (nodes.length === 0) {
+          alert('未能識別有效的 Mermaid 節點。請確認語法。')
+          return
+        }
+        importMermaidData({ nodes, edges })
+        alert(`成功匯入 ${nodes.length} 個節點與 ${edges.length} 條連線！`)
+      } catch (e) {
+        alert('匯入失敗：' + e.message)
+      }
+    }
   }
 
   return (
@@ -148,6 +166,15 @@ export default function Toolbar({ flowRef, onOpenAIGenerate }) {
         className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-100 transition-colors"
       >
         📂 匯入
+      </button>
+
+      {/* Import Mermaid */}
+      <button
+        onClick={handleImportMermaidOpen}
+        title="從 Mermaid 語法匯入"
+        className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-indigo-600 text-xs font-semibold hover:bg-slate-100 transition-colors"
+      >
+        📥 匯入 Mermaid
       </button>
 
       {/* Export JSON */}

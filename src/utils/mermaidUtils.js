@@ -70,3 +70,112 @@ export const generateSubProcessTemplate = (nodeLabel) => {
   
   %% 根據需要手動調整 class Action ai`
 }
+
+/**
+ * Parses a Mermaid graph TD/LR string into React Flow nodes and edges
+ * Supporting basic node declarations and connections
+ */
+export const parseMermaidToFlow = (mermaidCode) => {
+  const nodes = []
+  const edges = []
+  const nodeMap = new Map()
+  
+  const lines = mermaidCode.split('\n')
+  
+  // Basic Regex patterns
+  // 1. Node pattern: id["Label"] or id("Label") or id{"Label"} or id
+  const nodeRegex = /([a-zA-Z0-9_]+)(?:(\[|\{|\()(?:"|')?([^\]\n"}]+)(?:"|')?(\]|\}|\)))?/
+  
+  // 2. Connection pattern: id1 --> id2 or id1 --|Label|--> id2
+  const edgeRegex = /([a-zA-Z0-9_]+)\s*(-{2,}>|\.-\.-?>)\s*(?:\|(?:"|')?([^|]+)(?:"|')?\|\s*)?([a-zA-Z0-9_]+)/
+
+  lines.forEach(line => {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('graph') || trimmed.startsWith('classDef') || trimmed.startsWith('class ')) return
+
+    // Check for edges first as they contain node IDs
+    const edgeMatch = trimmed.match(edgeRegex)
+    if (edgeMatch) {
+      const [, sourceId, arrow, label, targetId] = edgeMatch
+      
+      // Ensure nodes exist
+      if (!nodeMap.has(sourceId)) {
+        const newNode = createParsedNode(sourceId, sourceId)
+        nodes.push(newNode)
+        nodeMap.set(sourceId, newNode)
+      }
+      if (!nodeMap.has(targetId)) {
+        const newNode = createParsedNode(targetId, targetId)
+        nodes.push(newNode)
+        nodeMap.set(targetId, newNode)
+      }
+      
+      edges.push({
+        id: `e-${sourceId}-${targetId}-${Date.now()}`,
+        source: sourceId,
+        target: targetId,
+        label: label || '',
+        isException: arrow.includes('.'),
+        style: arrow.includes('.') 
+          ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
+          : { stroke: '#64748b', strokeWidth: 2 },
+        animated: arrow.includes('.')
+      })
+      return
+    }
+
+    // Check for individual node declarations
+    const nodeMatch = trimmed.match(nodeRegex)
+    if (nodeMatch) {
+      const [, id, shape, label] = nodeMatch
+      const finalLabel = label || id
+      
+      if (nodeMap.has(id)) {
+        // Update existing node data if label found
+        const existingNode = nodeMap.get(id)
+        existingNode.data.label = finalLabel
+        if (shape === '{' || shape === '}') existingNode.type = 'decision'
+        if (shape === '(' || shape === ')') {
+          existingNode.type = 'startEnd'
+          existingNode.data.nodeType = (finalLabel === '開始' || finalLabel === 'Start') ? 'start' : 'end'
+        }
+      } else {
+        let type = 'process'
+        if (shape === '{') type = 'decision'
+        if (shape === '(') type = 'startEnd'
+        
+        const newNode = createParsedNode(id, finalLabel, type)
+        nodes.push(newNode)
+        nodeMap.set(id, newNode)
+      }
+    }
+  })
+
+  return { nodes, edges }
+}
+
+const createParsedNode = (id, label, type = 'process') => {
+  return {
+    id,
+    type,
+    position: { x: 0, y: 0 }, // Auto layout will handle this later
+    data: {
+      label,
+      nodeType: type === 'startEnd' ? (label === '開始' ? 'start' : 'end') : type,
+      responsible: 'human',
+      description: '',
+      aiTech: [],
+      difficulty: 'medium',
+      priority: 'medium',
+      notes: '',
+      department: '',
+      system: '',
+      inputData: '',
+      outputData: '',
+      monthlyVolume: 0,
+      manualTime: 0,
+      autoTime: 0,
+      mermaidCode: '',
+    }
+  }
+}

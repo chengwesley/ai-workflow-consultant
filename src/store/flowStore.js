@@ -151,6 +151,12 @@ const useFlowStore = create((set, get) => ({
     }
   },
 
+  importMermaidData: ({ nodes, edges }) => {
+    set({ nodes, edges, selectedNodeId: null, selectedEdgeId: null })
+    get().autoLayout() // Automatically arrange the imported nodes
+    get()._save()
+  },
+
   _save: () => {
     const { nodes, edges, projectName } = get()
     try {
