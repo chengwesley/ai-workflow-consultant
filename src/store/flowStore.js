@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import { addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import dagre from 'dagre'
 
-const STORAGE_KEY = 'ai-flow-consultant-data'
-const MAX_HISTORY = 50
+const STORAGE_KEY   = 'ai-flow-consultant-data'
+const SNAPSHOTS_KEY = 'ai-flow-snapshots'
+const MAX_HISTORY   = 50
 
 const defaultNodes = [
   {
@@ -41,6 +42,12 @@ const loadFromStorage = () => {
   return null
 }
 
+const loadSnapshots = () => {
+  try {
+    return JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]')
+  } catch { return [] }
+}
+
 const saved = loadFromStorage()
 const initialNodes = saved?.nodes || defaultNodes
 const initialEdges = saved?.edges || []
@@ -51,6 +58,8 @@ const useFlowStore = create((set, get) => ({
   selectedNodeId: null,
   selectedEdgeId: null,
   projectName: saved?.projectName || '未命名專案',
+
+  // --- Undo / Redo ---
   history: [{ nodes: initialNodes, edges: initialEdges }],
   historyIndex: 0,
 
@@ -95,14 +104,85 @@ const useFlowStore = create((set, get) => ({
     get()._save()
   },
 
+  // --- Search ---
+  searchQuery: '',
+  isSearchOpen: false,
+  setSearchQuery: (q) => set({ searchQuery: q }),
+  toggleSearch: () => set((s) => ({ isSearchOpen: !s.isSearchOpen, searchQuery: '' })),
+
+  // --- Snapshots ---
+  snapshots: loadSnapshots(),
+
+  saveSnapshot: (name) => {
+    const { nodes, edges, snapshots } = get()
+    const snap = {
+      id: Date.now().toString(),
+      name: name || `快照 ${new Date().toLocaleString('zh-TW')}`,
+      timestamp: Date.now(),
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+    }
+    const next = [...snapshots, snap]
+    set({ snapshots: next })
+    get()._saveSnapshots()
+  },
+
+  restoreSnapshot: (id) => {
+    const snap = get().snapshots.find((s) => s.id === id)
+    if (!snap) return
+    get()._pushHistory()
+    set({
+      nodes: JSON.parse(JSON.stringify(snap.nodes)),
+      edges: JSON.parse(JSON.stringify(snap.edges)),
+      selectedNodeId: null,
+      selectedEdgeId: null,
+    })
+    get()._save()
+  },
+
+  deleteSnapshot: (id) => {
+    set((state) => ({ snapshots: state.snapshots.filter((s) => s.id !== id) }))
+    get()._saveSnapshots()
+  },
+
+  _saveSnapshots: () => {
+    try {
+      localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(get().snapshots))
+    } catch (e) {
+      console.error('Failed to save snapshots', e)
+    }
+  },
+
+  // --- Batch Operations ---
+  batchUpdateNodes: (ids, updates) => {
+    get()._pushHistory()
+    set((state) => ({
+      nodes: state.nodes.map((n) =>
+        ids.includes(n.id) ? { ...n, data: { ...n.data, ...updates } } : n
+      ),
+    }))
+    get()._save()
+  },
+
+  batchChangeNodeType: (ids, newType) => {
+    get()._pushHistory()
+    set((state) => ({
+      nodes: state.nodes.map((n) =>
+        ids.includes(n.id) ? { ...n, type: newType } : n
+      ),
+    }))
+    get()._save()
+  },
+
+  // --- Core Graph Operations ---
   onNodesChange: (changes) => {
-    if (changes.some(c => c.type === 'remove')) get()._pushHistory()
+    if (changes.some((c) => c.type === 'remove')) get()._pushHistory()
     set((state) => ({ nodes: applyNodeChanges(changes, state.nodes) }))
     get()._save()
   },
 
   onEdgesChange: (changes) => {
-    if (changes.some(c => c.type === 'remove')) get()._pushHistory()
+    if (changes.some((c) => c.type === 'remove')) get()._pushHistory()
     set((state) => ({ edges: applyEdgeChanges(changes, state.edges) }))
     get()._save()
   },
@@ -111,12 +191,7 @@ const useFlowStore = create((set, get) => ({
     get()._pushHistory()
     set((state) => ({
       edges: addEdge(
-        {
-          ...connection,
-          type: 'step',
-          animated: false,
-          style: { stroke: '#94a3b8', strokeWidth: 2 }
-        },
+        { ...connection, type: 'step', animated: false, style: { stroke: '#94a3b8', strokeWidth: 2 } },
         state.edges
       ),
     }))
@@ -129,7 +204,7 @@ const useFlowStore = create((set, get) => ({
   addNode: (type) => {
     get()._pushHistory()
     const id = `${type}-${Date.now()}`
-    const labels = { process: '新流程步驟', decision: '判斷條件', startEnd: '結束' }
+    const labels = { process: '新流程步驟', decision: '判斷條件', startEnd: '結束', note: '📝 便利貼' }
     const { nodes } = get()
     const maxX = nodes.reduce((m, n) => Math.max(m, n.position.x), 0)
     const newNode = {
@@ -153,6 +228,7 @@ const useFlowStore = create((set, get) => ({
         manualTime: 0,
         autoTime: 0,
         mermaidCode: '',
+        noteColor: 'yellow',
       },
     }
     set((state) => ({ nodes: [...state.nodes, newNode], selectedNodeId: id, selectedEdgeId: null }))
@@ -176,7 +252,7 @@ const useFlowStore = create((set, get) => ({
 
   updateEdge: (id, props) => {
     set((state) => ({
-      edges: state.edges.map((e) => e.id === id ? { ...e, ...props } : e),
+      edges: state.edges.map((e) => (e.id === id ? { ...e, ...props } : e)),
     }))
     get()._save()
   },
@@ -260,14 +336,8 @@ const useFlowStore = create((set, get) => ({
     dagre.layout(g)
 
     const newNodes = nodes.map((node) => {
-      const nodeWithPosition = g.node(node.id)
-      return {
-        ...node,
-        position: {
-          x: nodeWithPosition.x - nodeWidth / 2,
-          y: nodeWithPosition.y - nodeHeight / 2,
-        },
-      }
+      const pos = g.node(node.id)
+      return { ...node, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } }
     })
 
     set({ nodes: newNodes })
@@ -277,22 +347,19 @@ const useFlowStore = create((set, get) => ({
   getAssessment: () => {
     const { nodes } = get()
     const processNodes = nodes.filter((n) => n.type === 'process' || n.type === 'decision')
-    const ai = processNodes.filter((n) => n.data.responsible === 'ai').length
-    const human = processNodes.filter((n) => n.data.responsible === 'human').length
+    const ai     = processNodes.filter((n) => n.data.responsible === 'ai').length
+    const human  = processNodes.filter((n) => n.data.responsible === 'human').length
     const hybrid = processNodes.filter((n) => n.data.responsible === 'hybrid').length
-    const total = processNodes.length
+    const total  = processNodes.length
 
-    const allTechs = processNodes.flatMap((n) => n.data.aiTech || [])
+    const allTechs  = processNodes.flatMap((n) => n.data.aiTech || [])
     const techCount = allTechs.reduce((acc, t) => ({ ...acc, [t]: (acc[t] || 0) + 1 }), {})
 
     return {
-      total,
-      ai,
-      human,
-      hybrid,
-      aiPercent: total ? Math.round((ai / total) * 100) : 0,
+      total, ai, human, hybrid,
+      aiPercent:     total ? Math.round((ai / total) * 100) : 0,
       hybridPercent: total ? Math.round((hybrid / total) * 100) : 0,
-      autoPercent: total ? Math.round(((ai + hybrid) / total) * 100) : 0,
+      autoPercent:   total ? Math.round(((ai + hybrid) / total) * 100) : 0,
       techCount,
     }
   },

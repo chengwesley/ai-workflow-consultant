@@ -4,16 +4,26 @@ import MermaidRenderer from './MermaidRenderer'
 import { generateSubProcessTemplate } from '../utils/mermaidUtils'
 
 const AI_TECH_OPTIONS = [
-  'Claude API',
-  'ChatGPT / GPT-4',
-  'RPA / UiPath',
-  'Python Script',
-  'n8n',
-  'Make.com',
-  'Vibe Coding',
-  'Custom Dev',
-  'Google AI',
-  'Line Bot',
+  'Claude API', 'ChatGPT / GPT-4', 'RPA / UiPath', 'Python Script',
+  'n8n', 'Make.com', 'Vibe Coding', 'Custom Dev', 'Google AI', 'Line Bot',
+]
+
+const NOTE_COLORS = [
+  { value: 'yellow', label: '黃', bg: 'bg-amber-200',  ring: 'ring-amber-400' },
+  { value: 'green',  label: '綠', bg: 'bg-green-200',  ring: 'ring-green-400' },
+  { value: 'blue',   label: '藍', bg: 'bg-sky-200',    ring: 'ring-sky-400'   },
+  { value: 'pink',   label: '粉', bg: 'bg-pink-200',   ring: 'ring-pink-400'  },
+]
+
+const NODE_TYPE_LIST = [
+  { type: 'process',  icon: '🟦', label: '步驟' },
+  { type: 'decision', icon: '🔶', label: '判斷' },
+  { type: 'system',   icon: '🖥️', label: '系統' },
+  { type: 'wait',     icon: '⏳', label: '等待' },
+  { type: 'file',     icon: '📄', label: '資料' },
+  { type: 'mail',     icon: '✉️', label: '郵件' },
+  { type: 'startEnd', icon: '⚪', label: '起止' },
+  { type: 'note',     icon: '📝', label: '便利貼' },
 ]
 
 const ResponsibleBtn = ({ value, current, label, color, onClick }) => (
@@ -34,8 +44,7 @@ function NumInput({ label, unit, value, onChange }) {
       <label className="block text-[10px] text-slate-400 mb-1">{label}</label>
       <div className="relative">
         <input
-          type="number"
-          min="0"
+          type="number" min="0"
           className="w-full border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-300 pr-6"
           placeholder="0"
           value={value || ''}
@@ -47,6 +56,7 @@ function NumInput({ label, unit, value, onChange }) {
   )
 }
 
+// ─── Edge Panel ──────────────────────────────────────────────────────────────
 function EdgePanel({ edge, updateEdge, deleteEdge, setSelectedEdge }) {
   const isException = edge.isException || false
 
@@ -58,10 +68,7 @@ function EdgePanel({ edge, updateEdge, deleteEdge, setSelectedEdge }) {
         ? { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '6,3' }
         : { stroke: '#94a3b8', strokeWidth: 2 },
       animated: !isException,
-      markerEnd: {
-        type: 'arrowclosed',
-        color: !isException ? '#ef4444' : '#94a3b8',
-      },
+      markerEnd: { type: 'arrowclosed', color: !isException ? '#ef4444' : '#94a3b8' },
     })
   }
 
@@ -71,9 +78,7 @@ function EdgePanel({ edge, updateEdge, deleteEdge, setSelectedEdge }) {
         <span className="text-sm font-bold text-slate-700">連線屬性</span>
         <button onClick={() => setSelectedEdge(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
       </div>
-
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Label */}
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">連線標籤</label>
           <input
@@ -83,30 +88,22 @@ function EdgePanel({ edge, updateEdge, deleteEdge, setSelectedEdge }) {
             placeholder="例：是、否、例外..."
           />
         </div>
-
-        {/* Exception toggle */}
         <div>
           <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">路徑類型</label>
           <button
             onClick={toggleException}
             className={`w-full py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
-              isException
-                ? 'bg-red-50 border-red-300 text-red-600'
-                : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+              isException ? 'bg-red-50 border-red-300 text-red-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
             }`}
           >
             {isException ? '🔴 例外 / 錯誤路徑' : '⬜ 正常路徑（點擊切換）'}
           </button>
-          {isException && (
-            <p className="text-[11px] text-red-400 mt-1.5">紅色虛線 = 例外 / 錯誤處理路徑</p>
-          )}
+          {isException && <p className="text-[11px] text-red-400 mt-1.5">紅色虛線 = 例外 / 錯誤處理路徑</p>}
         </div>
-
         <div className="bg-slate-50 rounded-lg p-3 text-[11px] text-slate-400 leading-relaxed">
           💡 例外路徑用於標記：AI 信心度不足轉人工、錯誤回滾、超時處理等非主要流程。
         </div>
       </div>
-
       <div className="p-4 border-t border-slate-100">
         <button
           onClick={() => deleteEdge(edge.id)}
@@ -119,11 +116,129 @@ function EdgePanel({ edge, updateEdge, deleteEdge, setSelectedEdge }) {
   )
 }
 
+// ─── Batch Panel ─────────────────────────────────────────────────────────────
+function BatchPanel({ selectedNodes, batchUpdateNodes, batchChangeNodeType, setSelectedNode }) {
+  const ids = selectedNodes.map((n) => n.id)
+  const processDecisionIds = selectedNodes.filter((n) => n.type === 'process' || n.type === 'decision').map((n) => n.id)
+
+  return (
+    <div className="w-72 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <span className="text-sm font-bold text-slate-700">
+          批次編輯 <span className="text-indigo-500 font-normal">({selectedNodes.length} 個節點)</span>
+        </span>
+        <button onClick={() => setSelectedNode(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        {/* Responsible batch */}
+        {processDecisionIds.length > 0 && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
+              統一執行類型（{processDecisionIds.length} 個流程/判斷節點）
+            </label>
+            <div className="flex gap-2">
+              <ResponsibleBtn value="ai"     current={null} label="🤖 AI"   color={{ bg: 'bg-emerald-50', border: 'border-emerald-400', text: 'text-emerald-700' }} onClick={(v) => batchUpdateNodes(processDecisionIds, { responsible: v })} />
+              <ResponsibleBtn value="hybrid" current={null} label="⚡ 混合" color={{ bg: 'bg-amber-50',   border: 'border-amber-400',   text: 'text-amber-700'   }} onClick={(v) => batchUpdateNodes(processDecisionIds, { responsible: v })} />
+              <ResponsibleBtn value="human"  current={null} label="👤 人工" color={{ bg: 'bg-blue-50',    border: 'border-blue-400',    text: 'text-blue-700'    }} onClick={(v) => batchUpdateNodes(processDecisionIds, { responsible: v })} />
+            </div>
+          </div>
+        )}
+
+        {/* Node type batch */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
+            統一節點類型
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {NODE_TYPE_LIST.filter(t => t.type !== 'note').map((item) => (
+              <button
+                key={item.type}
+                onClick={() => batchChangeNodeType(ids, item.type)}
+                className="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+                title={`全部改為 ${item.label}`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                <span className="text-[10px] mt-1 font-medium text-slate-600">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Selected list */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">已選取節點</label>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {selectedNodes.map((n) => (
+              <div key={n.id} className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded px-2 py-1.5">
+                <span>{NODE_TYPE_LIST.find(t => t.type === n.type)?.icon || '🟦'}</span>
+                <span className="truncate">{n.data.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Note Panel ───────────────────────────────────────────────────────────────
+function NotePanel({ node, update, deleteNode, setSelectedNode }) {
+  return (
+    <div className="w-72 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <span className="text-sm font-bold text-slate-700">📝 便利貼</span>
+        <button onClick={() => setSelectedNode(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">內容</label>
+          <textarea
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+            rows={5}
+            placeholder="輸入便利貼內容..."
+            value={node.data.label || ''}
+            onChange={(e) => update('label', e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">顏色</label>
+          <div className="flex gap-2">
+            {NOTE_COLORS.map((c) => (
+              <button
+                key={c.value}
+                onClick={() => update('noteColor', c.value)}
+                className={`w-8 h-8 rounded-full ${c.bg} border-2 transition-all ${
+                  (node.data.noteColor || 'yellow') === c.value ? `${c.ring} ring-2 ring-offset-1 scale-110` : 'border-slate-300'
+                }`}
+                title={c.label}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 border-t border-slate-100">
+        <button
+          onClick={() => deleteNode(node.id)}
+          className="w-full py-2 rounded-lg border border-red-200 text-red-500 text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors"
+        >
+          刪除便利貼
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main NodePanel ───────────────────────────────────────────────────────────
 export default function NodePanel() {
   const {
     nodes, edges, selectedNodeId, selectedEdgeId,
     setSelectedNode, setSelectedEdge, updateNodeData, deleteNode,
     updateEdge, deleteEdge, changeNodeType,
+    batchUpdateNodes, batchChangeNodeType,
   } = useFlowStore(
     useShallow((s) => ({
       nodes: s.nodes, edges: s.edges,
@@ -132,14 +247,27 @@ export default function NodePanel() {
       updateNodeData: s.updateNodeData, deleteNode: s.deleteNode,
       updateEdge: s.updateEdge, deleteEdge: s.deleteEdge,
       changeNodeType: s.changeNodeType,
+      batchUpdateNodes: s.batchUpdateNodes, batchChangeNodeType: s.batchChangeNodeType,
     }))
   )
 
-  const node = nodes.find((n) => n.id === selectedNodeId)
-  const selectedEdge = edges.find((e) => e.id === selectedEdgeId)
+  const selectedEdge  = edges.find((e) => e.id === selectedEdgeId)
+  const selectedNodes = nodes.filter((n) => n.selected)
+
+  // Multi-select batch panel
+  if (selectedNodes.length > 1 && !selectedEdge) {
+    return (
+      <BatchPanel
+        selectedNodes={selectedNodes}
+        batchUpdateNodes={batchUpdateNodes}
+        batchChangeNodeType={batchChangeNodeType}
+        setSelectedNode={setSelectedNode}
+      />
+    )
+  }
 
   // Edge panel
-  if (!node && selectedEdge) {
+  if (!selectedNodes.length && selectedEdge) {
     return (
       <EdgePanel
         edge={selectedEdge}
@@ -150,23 +278,26 @@ export default function NodePanel() {
     )
   }
 
-  // Empty state — hide panel completely
-  if (!node) {
-    return null
-  }
+  // Resolve single node
+  const node = selectedNodes.length === 1 ? selectedNodes[0] : nodes.find((n) => n.id === selectedNodeId)
+  if (!node) return null
 
   const update = (field, value) => updateNodeData(node.id, { [field]: value })
 
-  const toggleTech = (tech) => {
-    const current = node.data.aiTech || []
-    const next = current.includes(tech) ? current.filter((t) => t !== tech) : [...current, tech]
-    update('aiTech', next)
+  // Note node → simplified panel
+  if (node.type === 'note') {
+    return <NotePanel node={node} update={update} deleteNode={deleteNode} setSelectedNode={setSelectedNode} />
   }
 
-  const vol = Number(node.data.monthlyVolume) || 0
+  const toggleTech = (tech) => {
+    const current = node.data.aiTech || []
+    update('aiTech', current.includes(tech) ? current.filter((t) => t !== tech) : [...current, tech])
+  }
+
+  const vol    = Number(node.data.monthlyVolume) || 0
   const manual = Number(node.data.manualTime) || 0
-  const auto = Number(node.data.autoTime) || 0
-  const stepSavedMin = vol > 0 && manual > 0 ? vol * (manual - auto) : null
+  const auto   = Number(node.data.autoTime) || 0
+  const stepSavedMin   = vol > 0 && manual > 0 ? vol * (manual - auto) : null
   const stepSavedHours = stepSavedMin !== null ? Math.round(stepSavedMin / 60 * 10) / 10 : null
 
   return (
@@ -174,37 +305,20 @@ export default function NodePanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
         <span className="text-sm font-bold text-slate-700">節點屬性</span>
-        <button
-          onClick={() => setSelectedNode(null)}
-          className="text-slate-400 hover:text-slate-600 text-lg leading-none"
-        >
-          ×
-        </button>
+        <button onClick={() => setSelectedNode(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
       </div>
 
-      {/* One-Click Apply: Node Type Switcher */}
+      {/* Node Type Switcher */}
       <div className="p-4 border-b border-slate-100 bg-indigo-50/30">
-        <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">
-          一鍵切換節點類型
-        </label>
+        <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">一鍵切換節點類型</label>
         <div className="grid grid-cols-4 gap-2">
-          {[
-            { type: 'process', icon: '🟦', label: '步驟' },
-            { type: 'decision', icon: '🔶', label: '判斷' },
-            { type: 'system', icon: '🖥️', label: '系統' },
-            { type: 'wait', icon: '⏳', label: '等待' },
-            { type: 'file', icon: '📄', label: '資料' },
-            { type: 'mail', icon: '✉️', label: '郵件' },
-            { type: 'startEnd', icon: '⚪', label: '起止' },
-          ].map((item) => (
+          {NODE_TYPE_LIST.map((item) => (
             <button
               key={item.type}
               onClick={() => changeNodeType(node.id, item.type)}
               className={`
                 flex flex-col items-center justify-center p-2 rounded-lg border transition-all
-                ${node.type === item.type 
-                  ? 'bg-white border-indigo-400 shadow-sm' 
-                  : 'bg-transparent border-slate-200 hover:border-indigo-300 hover:bg-white'}
+                ${node.type === item.type ? 'bg-white border-indigo-400 shadow-sm' : 'bg-transparent border-slate-200 hover:border-indigo-300 hover:bg-white'}
               `}
               title={`轉換為 ${item.label}`}
             >
@@ -218,9 +332,7 @@ export default function NodePanel() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Step Name */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-            步驟名稱
-          </label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">步驟名稱</label>
           <input
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300"
             value={node.data.label}
@@ -230,11 +342,9 @@ export default function NodePanel() {
 
         {/* Description */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-            步驟描述
-          </label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">步驟描述</label>
           <textarea
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
             rows={2}
             placeholder="簡述此步驟的內容..."
             value={node.data.description || ''}
@@ -242,44 +352,22 @@ export default function NodePanel() {
           />
         </div>
 
-        {/* Responsible Type — only for process nodes */}
+        {/* Responsible */}
         {(node.type === 'process' || node.type === 'decision') && (
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-              執行類型
-            </label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">執行類型</label>
             <div className="flex gap-2">
-              <ResponsibleBtn
-                value="ai"
-                current={node.data.responsible}
-                label="🤖 AI"
-                color={{ bg: 'bg-emerald-50', border: 'border-emerald-400', text: 'text-emerald-700' }}
-                onClick={(v) => update('responsible', v)}
-              />
-              <ResponsibleBtn
-                value="hybrid"
-                current={node.data.responsible}
-                label="⚡ 混合"
-                color={{ bg: 'bg-amber-50', border: 'border-amber-400', text: 'text-amber-700' }}
-                onClick={(v) => update('responsible', v)}
-              />
-              <ResponsibleBtn
-                value="human"
-                current={node.data.responsible}
-                label="👤 人工"
-                color={{ bg: 'bg-blue-50', border: 'border-blue-400', text: 'text-blue-700' }}
-                onClick={(v) => update('responsible', v)}
-              />
+              <ResponsibleBtn value="ai"     current={node.data.responsible} label="🤖 AI"   color={{ bg: 'bg-emerald-50', border: 'border-emerald-400', text: 'text-emerald-700' }} onClick={(v) => update('responsible', v)} />
+              <ResponsibleBtn value="hybrid" current={node.data.responsible} label="⚡ 混合" color={{ bg: 'bg-amber-50',   border: 'border-amber-400',   text: 'text-amber-700'   }} onClick={(v) => update('responsible', v)} />
+              <ResponsibleBtn value="human"  current={node.data.responsible} label="👤 人工" color={{ bg: 'bg-blue-50',    border: 'border-blue-400',    text: 'text-blue-700'    }} onClick={(v) => update('responsible', v)} />
             </div>
           </div>
         )}
 
-        {/* AI Tech — only when AI or hybrid */}
+        {/* AI Tech */}
         {(node.data.responsible === 'ai' || node.data.responsible === 'hybrid') && node.type !== 'startEnd' && (
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-              建議技術
-            </label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">建議技術</label>
             <div className="flex flex-wrap gap-1.5">
               {AI_TECH_OPTIONS.map((tech) => {
                 const selected = (node.data.aiTech || []).includes(tech)
@@ -287,13 +375,9 @@ export default function NodePanel() {
                   <button
                     key={tech}
                     onClick={() => toggleTech(tech)}
-                    className={`
-                      text-xs px-2.5 py-1.5 rounded-lg border transition-all
-                      ${selected
-                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold'
-                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                      }
-                    `}
+                    className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all ${
+                      selected ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                    }`}
                   >
                     {tech}
                   </button>
@@ -307,9 +391,7 @@ export default function NodePanel() {
         {node.type !== 'startEnd' && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                難度
-              </label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">難度</label>
               <select
                 className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                 value={node.data.difficulty || 'medium'}
@@ -321,9 +403,7 @@ export default function NodePanel() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                優先級
-              </label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">優先級</label>
               <select
                 className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                 value={node.data.priority || 'medium'}
@@ -339,11 +419,9 @@ export default function NodePanel() {
 
         {/* Department */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-            所屬部門
-          </label>
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">所屬部門</label>
           <input
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             placeholder="例：業務部、IT 部..."
             value={node.data.department || ''}
             onChange={(e) => update('department', e.target.value)}
@@ -353,12 +431,10 @@ export default function NodePanel() {
         {/* System Used */}
         {node.type !== 'startEnd' && (
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-              使用系統 / 工具
-            </label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">使用系統 / 工具</label>
             <input
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300"
-              placeholder="例：Salesforce、SAP、Excel、Google Form..."
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              placeholder="例：Salesforce、SAP、Excel..."
               value={node.data.system || ''}
               onChange={(e) => update('system', e.target.value)}
             />
@@ -369,58 +445,25 @@ export default function NodePanel() {
         {node.type !== 'startEnd' && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                輸入資料
-              </label>
-              <textarea
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none"
-                rows={3}
-                placeholder="表單、CSV、API...&#10;每行一項"
-                value={node.data.inputData || ''}
-                onChange={(e) => update('inputData', e.target.value)}
-              />
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">輸入資料</label>
+              <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" rows={3} placeholder="表單、CSV、API..." value={node.data.inputData || ''} onChange={(e) => update('inputData', e.target.value)} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                輸出資料
-              </label>
-              <textarea
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none"
-                rows={3}
-                placeholder="報表、Email、DB...&#10;每行一項"
-                value={node.data.outputData || ''}
-                onChange={(e) => update('outputData', e.target.value)}
-              />
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">輸出資料</label>
+              <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" rows={3} placeholder="報表、Email、DB..." value={node.data.outputData || ''} onChange={(e) => update('outputData', e.target.value)} />
             </div>
           </div>
         )}
 
-        {/* ROI / Volume fields — only for process nodes */}
+        {/* ROI */}
         {node.type === 'process' && (
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
-              ⏱ 工作量估算
-            </label>
+            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">⏱ 工作量估算</label>
             <div className="bg-slate-50 rounded-lg p-3 space-y-2">
               <div className="grid grid-cols-3 gap-2">
-                <NumInput
-                  label="月執行量"
-                  unit="次"
-                  value={node.data.monthlyVolume}
-                  onChange={(v) => update('monthlyVolume', v)}
-                />
-                <NumInput
-                  label="人工耗時"
-                  unit="分"
-                  value={node.data.manualTime}
-                  onChange={(v) => update('manualTime', v)}
-                />
-                <NumInput
-                  label="自動化後"
-                  unit="分"
-                  value={node.data.autoTime}
-                  onChange={(v) => update('autoTime', v)}
-                />
+                <NumInput label="月執行量" unit="次" value={node.data.monthlyVolume} onChange={(v) => update('monthlyVolume', v)} />
+                <NumInput label="人工耗時" unit="分" value={node.data.manualTime}    onChange={(v) => update('manualTime', v)}    />
+                <NumInput label="自動化後" unit="分" value={node.data.autoTime}      onChange={(v) => update('autoTime', v)}      />
               </div>
               {stepSavedHours !== null && (
                 <div className="flex items-center justify-between pt-1.5 border-t border-slate-200">
@@ -434,74 +477,39 @@ export default function NodePanel() {
           </div>
         )}
 
-        {/* Notes for dev */}
+        {/* Notes */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-            給技術團隊的備註
-          </label>
-          <textarea
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none"
-            rows={3}
-            placeholder="API 規格、特殊需求、注意事項..."
-            value={node.data.notes || ''}
-            onChange={(e) => update('notes', e.target.value)}
-          />
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">給技術團隊的備註</label>
+          <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" rows={3} placeholder="API 規格、特殊需求、注意事項..." value={node.data.notes || ''} onChange={(e) => update('notes', e.target.value)} />
         </div>
 
-        {/* Mermaid Editor — for process and decision nodes */}
+        {/* Mermaid sub-process */}
         {(node.type === 'process' || node.type === 'decision') && (
           <div className="pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-bold text-indigo-600 uppercase tracking-wide">
-                📊 子流程 (Mermaid)
-              </label>
+              <label className="block text-xs font-bold text-indigo-600 uppercase tracking-wide">📊 子流程 (Mermaid)</label>
               {!node.data.mermaidCode && (
-                <button
-                  onClick={() => update('mermaidCode', generateSubProcessTemplate(node.data.label))}
-                  className="text-[10px] text-indigo-500 hover:text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded transition-colors"
-                >
+                <button onClick={() => update('mermaidCode', generateSubProcessTemplate(node.data.label))} className="text-[10px] text-indigo-500 hover:text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded transition-colors">
                   ⚡ 生成範本
                 </button>
               )}
             </div>
-            
-            <textarea
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none bg-slate-50"
-              rows={4}
-              placeholder="輸入 Mermaid 語法 (如 graph LR...)"
-              value={node.data.mermaidCode || ''}
-              onChange={(e) => update('mermaidCode', e.target.value)}
-            />
-            
+            <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50" rows={4} placeholder="輸入 Mermaid 語法 (如 graph LR...)" value={node.data.mermaidCode || ''} onChange={(e) => update('mermaidCode', e.target.value)} />
             {node.data.mermaidCode && (
               <div className="mt-3 p-2 border border-slate-100 rounded-lg bg-white shadow-inner">
                 <div className="text-[9px] text-slate-400 mb-1">即時預覽</div>
-                <MermaidRenderer 
-                  chartCode={node.data.mermaidCode} 
-                  className="max-h-[150px]" 
-                />
-                <button
-                  onClick={() => update('mermaidCode', '')}
-                  className="w-full mt-2 py-1 text-[10px] text-slate-400 hover:text-red-400 transition-colors"
-                >
-                  清除圖表
-                </button>
+                <MermaidRenderer chartCode={node.data.mermaidCode} className="max-h-[150px]" />
+                <button onClick={() => update('mermaidCode', '')} className="w-full mt-2 py-1 text-[10px] text-slate-400 hover:text-red-400 transition-colors">清除圖表</button>
               </div>
             )}
-            
-            <p className="text-[10px] text-slate-400 mt-2 leading-tight">
-              💡 使用 Mermaid 語法描述此步驟內部的細節流程。
-            </p>
+            <p className="text-[10px] text-slate-400 mt-2 leading-tight">💡 使用 Mermaid 語法描述此步驟內部的細節流程。</p>
           </div>
         )}
       </div>
 
-      {/* Delete button */}
+      {/* Delete */}
       <div className="p-4 border-t border-slate-100">
-        <button
-          onClick={() => deleteNode(node.id)}
-          className="w-full py-2 rounded-lg border border-red-200 text-red-500 text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors"
-        >
+        <button onClick={() => deleteNode(node.id)} className="w-full py-2 rounded-lg border border-red-200 text-red-500 text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-colors">
           刪除此節點
         </button>
       </div>
